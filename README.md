@@ -1,63 +1,76 @@
-<p align="center">
-  <img alt="Percy Nazario — Machine Learning · Analítica de Datos · Desarrollo Full Stack" src="imagenes/banner.png" width="100%">
-</p>
+# Lector de placas vehiculares peruanas
+
+Sistema que **detecta placas peruanas con YOLO11** y **las lee con un modelo de visión y lenguaje (Qwen2.5-VL-3B)**. En video, sigue cada placa entre fotogramas y consolida la lectura por votación.
 
 <p align="center">
-  <a href="https://www.linkedin.com/in/percy-nazario/"><img src="https://img.shields.io/badge/LinkedIn-percy--nazario-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn"></a>
-  <a href="mailto:jpnazariop@gmail.com"><img src="https://img.shields.io/badge/Email-jpnazariop%40gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white" alt="Email"></a>
-  <a href="https://www.tusueldo.pe"><img src="https://img.shields.io/badge/Web-tusueldo.pe-0B1D2A?style=flat-square&logo=googlechrome&logoColor=white" alt="TuSueldo.pe"></a>
-  <a href="https://www.youtube.com/@percytech"><img src="https://img.shields.io/badge/YouTube-Percy_Tech-FF0000?style=flat-square&logo=youtube&logoColor=white" alt="YouTube"></a>
+  <img src="assets/demo_video.gif" alt="Detección, seguimiento y lectura de una placa en video" width="640">
 </p>
 
-## Sobre mí
+## Resultados
 
-Analista de Datos y Sistemas en **GDS Infraestructura** y maestrando en **Inteligencia Artificial en la UNI**, con base en Investigación Operativa (UNMSM). Construyo modelos de machine learning y soluciones de datos que llegan a producción: visión por computador, forecasting y automatización de procesos.
+| Etapa | Métrica | Resultado |
+|---|---|---|
+| Detección (YOLO11n) | mAP@0.5 en validación (41 imágenes) | **0,986** |
+| Detección (YOLO11n) | mAP@0.5:0.95 · precisión · recall | 0,787 · 0,973 · 0,951 |
+| Detección en prueba | Placas detectadas en 21 imágenes no vistas | 17 / 21 |
+| Lectura con Qwen2.5-VL (prompt afinado) | Lecturas con formato peruano válido (`ABC-123`) | 13 / 21 (76 % de las placas detectadas) |
+| Video (214 fotogramas) | Lectura consolidada por votación | `ALJ-180`, correcta (24 de 26 votos) |
 
-- **Ahora:** investigo un traductor de Lengua de Señas Peruana a lenguaje natural para atención médica (visión por computador + NLP en un sistema embebido).
-- **En el trabajo:** integro fuentes de datos, defino reglas de calidad y construyo indicadores de cumplimiento (SLA) para más de 1.700 tickets de mantenimiento.
-- **También enseño:** comparto contenido sobre IA y análisis de datos en [YouTube](https://www.youtube.com/@percytech).
+## Cómo funciona
 
-## Proyectos destacados
+```
+Imagen o video ─► YOLO11n detecta la placa ─► recorte con margen ─► Qwen2.5-VL lee el texto
+                                                                       │
+                       En video: seguimiento por placa + consulta cada 5 fotogramas + voto mayoritario
+```
 
-| Proyecto | Qué hace | Stack | Resultado |
-|---|---|---|---|
-| [**Cumplimiento de EPP con YOLOv8**](https://github.com/PercyTechX/epp-yolo-compliance) | Detecta casco y chaleco en obras y clasifica a cada trabajador como conforme, no conforme o indeterminado. | YOLOv8 · PyTorch · Kaggle | mAP@0.5 de **0,771** en 3.895 imágenes de prueba; ≥ 0,947 en las clases críticas |
-| [**Lector de placas peruanas**](https://github.com/PercyTechX/lector-placas-peru) | Detecta placas con YOLO11 y las lee con un modelo de visión y lenguaje (Qwen2.5-VL), con seguimiento y votación por placa en video. | YOLO11 · Qwen2.5-VL · OpenCV | Detección: mAP@0.5 de **0,986**; lectura correcta en video por votación |
-| **Forecasting de tráfico en peajes** | Pronostica el tráfico vehicular y proyecta el costo de los peajes a 3 años. | Python · ARIMA / SARIMA | MAPE **< 5 %** con backtesting |
-| [**RindePe**](https://github.com/PercyTechX/rindepe-demo) | Control de caja chica para técnicos de campo: flujo de aprobación, KPIs en tiempo real y hoja resumen en PDF. | React · TypeScript · Node.js | En producción en una empresa de ingeniería |
-| [**TuSueldo.pe**](https://www.tusueldo.pe) | Calculadoras laborales para trabajadores peruanos: CTS, gratificación, vacaciones, liquidación y sueldo neto. | HTML · CSS · JavaScript | En producción |
+1. **Detección.** YOLO11n entrenado sobre el dataset público [Peruvian Plate Detection](https://universe.roboflow.com/tp2-bbjq4/peruvian-plate-detection-rbdtj/dataset/2) (235 imágenes de entrenamiento, 41 de validación y 21 de prueba; licencia MIT). Entrenamiento en Colab con una GPU T4, imágenes de 640 px y *early stopping* con paciencia de 20 épocas.
+2. **Lectura.** El recorte de la placa pasa a un modelo de visión y lenguaje con un prompt específico para el formato peruano, y la respuesta se valida con una expresión regular.
+3. **Video.** Cada placa recibe un ID de seguimiento. El modelo de lectura se consulta cada 5 fotogramas, y la lectura final es la más votada. Esto filtra los errores de fotogramas aislados (`ALC-160`, `ALB-800`) y deja la lectura estable.
 
-**Proyectos profesionales** (código privado por contener datos de clientes):
-- **Portal de seguimiento de SLA multicliente:** integra ERP, GLPI y correo, aplica 15 reglas de calidad de datos y redujo el reporte semanal para gerencia de 1 día a 5 minutos.
-- **Sistema de RRHH en producción:** más de 20 módulos, asistencia por GPS con geocerca e integración con SharePoint vía Microsoft Graph. Ahorra 48 horas al mes.
+## Lo que aprendí al comparar enfoques de lectura
 
-## Stack
+| Enfoque | Lecturas con formato válido | Observación |
+|---|---|---|
+| EasyOCR directo | 0 / 21 | No lee bien recortes pequeños y de baja resolución. |
+| EasyOCR + preprocesamiento (CLAHE, nitidez) | 0 / 21 | Mejora el contraste, pero no la lectura. |
+| EasyOCR + regex + corrección de caracteres | 4 / 21 | La corrección ayuda poco. |
+| EasyOCR con varias versiones del recorte | 14 / 21 | **Formato válido, pero en la revisión visual la mayoría era incorrecta**: la corrección "inventaba" placas plausibles. |
+| **Qwen2.5-VL con prompt afinado** | **13 / 21** | Más robusto al ruido y a la iluminación, y no inventa lecturas. |
 
-**Machine learning y datos**
+La lección: **una métrica de formato válido no es una métrica de exactitud.** La revisión visual mostró que el mejor número (14/21) escondía lecturas falsas.
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
-![pandas](https://img.shields.io/badge/pandas-150458?style=flat-square&logo=pandas&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
-![YOLO](https://img.shields.io/badge/Ultralytics_YOLO-111F68?style=flat-square&logo=ultralytics&logoColor=white)
-![SQL](https://img.shields.io/badge/SQL-4479A1?style=flat-square&logo=mysql&logoColor=white)
-![Power BI](https://img.shields.io/badge/Power_BI-F2C811?style=flat-square&logo=powerbi&logoColor=black)
-![Power Automate](https://img.shields.io/badge/Power_Automate-0066FF?style=flat-square&logo=powerautomate&logoColor=white)
+<p align="center">
+  <img src="assets/easyocr_lecturas.png" alt="Revisión visual de las lecturas de EasyOCR" width="720">
+</p>
 
-**Desarrollo**
+## Entrenamiento
 
-![Laravel](https://img.shields.io/badge/Laravel-FF2D20?style=flat-square&logo=laravel&logoColor=white)
-![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)
-![Google Cloud](https://img.shields.io/badge/Google_Cloud_APIs-4285F4?style=flat-square&logo=googlecloud&logoColor=white)
-![Git](https://img.shields.io/badge/Git-F05032?style=flat-square&logo=git&logoColor=white)
+<p align="center">
+  <img src="assets/curvas_entrenamiento.png" alt="Curvas de entrenamiento de YOLO11n" width="720">
+</p>
+<p align="center">
+  <img src="assets/predicciones_validacion.jpg" alt="Predicciones sobre el conjunto de validación" width="560">
+</p>
 
-## Material educativo
+## Cómo ejecutarlo
 
-- [Python for Analytics](https://percytechx.github.io/Python-For-Anlytics/)
-- [Power Query](https://percytechx.github.io/Power-Query/)
+Los notebooks están pensados para Google Colab con GPU:
+
+1. [`notebooks/01_entrenamiento_yolo11.ipynb`](notebooks/01_entrenamiento_yolo11.ipynb): descarga el dataset desde Roboflow (pide tu API key), entrena YOLO11n y evalúa.
+2. [`notebooks/02_lectura_placas_vlm.ipynb`](notebooks/02_lectura_placas_vlm.ipynb): compara EasyOCR con Qwen2.5-VL y procesa un video con seguimiento y votación.
+
+```bash
+pip install -r requirements.txt
+```
+
+## Limitaciones y siguientes pasos
+
+- El conjunto de prueba es pequeño (21 imágenes). Falta medir la **exactitud de lectura** contra etiquetas reales, no solo el formato válido.
+- YOLO no detectó 4 de 21 placas: hace falta más datos de placas lejanas, de noche o inclinadas.
+- Qwen2.5-VL-3B tarda cerca de 1 s por placa en una T4. Para tiempo real habría que reducir las consultas o usar un modelo de lectura más ligero, ajustado a placas.
 
 ---
 
-<p align="center"><sub>¿Trabajas en analytics o machine learning? Escríbeme a <a href="mailto:jpnazariop@gmail.com">jpnazariop@gmail.com</a> o por <a href="https://www.linkedin.com/in/percy-nazario/">LinkedIn</a>.</sub></p>
+Proyecto del curso **Redes Neuronales y Aprendizaje Profundo**, Maestría en Inteligencia Artificial – UNI. Autor: [Percy Nazario](https://github.com/PercyTechX) · [LinkedIn](https://www.linkedin.com/in/percy-nazario/)
+
