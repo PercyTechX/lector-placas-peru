@@ -1,8 +1,0 @@
-ultralytics>=8.3
-roboflow
-opencv-python
-easyocr
-transformers>=4.49
-accelerate
-qwen-vl-utils
-torch
